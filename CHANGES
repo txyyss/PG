@@ -5,7 +5,34 @@ the Git ChangeLog, the GitHub repo https://github.com/ProofGeneral/PG
 
 * Changes of Proof General 4.6 from Proof General 4.5
 
-N/A
+** Generic changes
+*** Improve the omit-proofs feature to handle a number of cases where
+    proofs must not be omitted.
+*** Renew support for proof-tree visualization via the external command
+    prooftree, see http://askra.de/software/prooftree and Section 7
+    "Graphical Proof-Tree Visualization" in the Proof General manual.
+    Proof-tree visualization is currently only supported for Coq. The
+    prooftree support has been substantially rewritten, making use of
+    the much better support since Coq version 8.11.
+
+** Coq changes
+*** support Coq 8.19
+**** New option coq-compile-coqdep-warnings to configure the warning
+     command line argument (-w) of coqdep. The default of this option
+     is +module-not-found to let Proof General reliably detect missing
+     modules as coqdep error.
+*** Renew support for proof-tree visualization, see description in
+    generic changes above.
+
+
+**** New options coq-compile-extra-coqc-arguments and
+     coq-compile-extra-coqdep-arguments to configure additional
+     command line arguments to calls of, respetively, coqc and coqdep
+     during auto compilation.
+
+**** Fix issues #687 and #688 where the omit-proofs feature causes
+     errors on correct code.
+
 
 * Changes of Proof General 4.5 from Proof General 4.4
 
@@ -44,7 +71,7 @@ standard support.
 *** add another (fallback) key-binding for proof-goto-point
     - The default key-binding for proof-goto-point (C-c <C-return>)
       was not available in TTYs. Now, this function can also be run
-      with "C-c RET", which happens to be automatically trigerred if
+      with "C-c RET", which happens to be automatically triggered if
       we type "C-c <C-return>" in a TTY.
 
 *** new proof-priority-action-list
@@ -376,7 +403,7 @@ standard support.
     | S n => ...
     end
     do this: (setq coq-match-indent 4) to get back the
-    previous indetation style:
+    previous indentation style:
     match n with
         O => ...
       | S n => ...

@@ -19,6 +19,35 @@
 ;; Mode for buffer which interacts with proof assistant.
 ;; Includes management of a queue of commands waiting to be sent.
 ;;
+;; A big portion of the code in this file implements the callback
+;; function that Emacs calls when output arrives from the proof
+;; assistant. This callback implements a major feature of Proof
+;; General: Sending one command after the other to the proof assistant
+;; and processing/displaying the reply.
+;;
+;; The following documents the call graph of important functions that
+;; contribute to this callback. The entry point is
+;; `proof-shell-filter-wrapper', which is configured in
+;; `scomint-output-filter-functions'. Sending the next comand to the
+;; proof assistant and calling the callbacks of the spans happens in
+;; `proof-shell-exec-loop'.
+;;
+;;   proof-shell-filter-wrapper
+;;   -> proof-shell-filter
+;;      -> proof-shell-process-urgent-messages
+;;      -> proof-shell-filter-manage-output
+;;         -> proof-shell-handle-immediate-output
+;;         -> proof-shell-exec-loop
+;;            -> proof-tree-check-proof-finish
+;;            -> proof-shell-handle-error-or-interrupt
+;;            -> proof-shell-insert-action-item
+;;            -> proof-shell-invoke-callback
+;;            -> proof-release-lock
+;;         -> proof-shell-handle-delayed-output
+;;         -> proof-tree-handle-delayed-output
+;;      -> proof-release-lock
+;;   -> proof-start-prover-with-priority-items-maybe
+;;
 
 ;;; Code:
 
@@ -31,7 +60,6 @@
 ;; declare a few functions and variables from proof-tree - if we
 ;; require proof-tree the compiler complains about a recusive
 ;; dependency.
-(declare-function proof-tree-urgent-action "proof-tree" (flags))
 (declare-function proof-tree-handle-delayed-output "proof-tree"
 		  (old-proof-marker cmd flags span))
 ;; without the nil initialization the compiler still warns about this variable
@@ -114,7 +142,8 @@ and to be executed last is at the head.")
   (condition-case err
       (funcall (nth 2 listitem) (car listitem))
     (error
-     (message "error escaping proof-shell-invoke-callback: %s" err)
+     (message "error escaping proof-shell-invoke-callback %s for command %s: %s"
+              (nth 2 listitem) (nth 1 listitem) err)
      nil)))
 
 (defvar proof-second-action-list-active nil
@@ -1206,11 +1235,12 @@ contains only invisible elements for Prooftree synchronization."
 	;; proof-action-list and where the next item has not yet been
 	;; sent to the proof assistant. This is therefore one of the
 	;; few points where it is safe to manipulate
-	;; proof-action-list. The urgent proof-tree display actions
-	;; must therefore be called here, because they might add some
-	;; Show actions at the front of proof-action-list.
-	(if proof-tree-external-display
-	    (proof-tree-urgent-action flags))
+	;; proof-action-list.
+
+        ;; Call the urgent action of prooftree, if the display is on.
+        ;; This might enqueue items in the priority action list.
+        (when proof-tree-external-display
+          (proof-tree-check-proof-finish item))
 
         ;; Add priority actions to the front of proof-action-list.
         ;; Delay adding of priority items until there is no priority
@@ -1331,9 +1361,6 @@ ends with text matching `proof-shell-eager-annotation-end'."
      ;; NB: xml-parse-region ignores junk before XML
      (xml-parse-region start end)))
    
-   ((proof-looking-at-safe proof-shell-theorem-dependency-list-regexp)
-    (proof-shell-process-urgent-message-thmdeps))
-
    ((proof-looking-at-safe proof-shell-theorem-dependency-list-regexp)
     (proof-shell-process-urgent-message-thmdeps))
 

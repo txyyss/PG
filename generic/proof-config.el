@@ -715,10 +715,14 @@ match of `proof-script-proof-end-regexp', are omitted (not send
 to the proof assistant) and replaced by
 `proof-script-proof-admit-command'. If a match for
 `proof-script-definition-end-regexp' is found while searching
-forward for the proof end, the current proof (up to and including
-the match of `proof-script-definition-end-regexp') is considered
-to be not opaque and not omitted, thus all these proof commands
-_are_ sent to the proof assistant.
+forward for the proof end or if
+`proof-script-cmd-prevents-proof-omission' recognizes a proof
+command that prevents proof omission then the current proof (up
+to and including the match of
+`proof-script-definition-end-regexp' or
+`proof-script-proof-end-regexp') is considered to be not opaque
+and not omitted, thus all these proof commands _are_ sent to the
+proof assistant.
 
 The feature does not work for nested proofs. If a match for
 `proof-script-proof-start-regexp' is found before the next match
@@ -757,6 +761,34 @@ See `proof-omit-proofs-configured'."
 (defcustom proof-script-proof-admit-command nil
   "Proof command to be inserted instead of omitted proofs."
   :type 'string
+  :group 'proof-script)
+
+(defcustom proof-script-cmd-prevents-proof-omission nil
+  "Optional predicate to match commands that prevent omitting the current proof.
+If set, this option should contain a function that takes a proof
+command (as string) as argument and returns t or nil. If set, the
+function is called on every proof command inside a proof while
+scanning for proofs to omit. The predicate should return t if the
+command has effects ouside the proof, potentially breaking the
+script if the current proof is omitted. If the predicate returns
+t, the proof is considered to be not opaque and thus not omitted."
+  :type 'function
+  :group 'proof-script)
+
+(defcustom proof-script-cmd-force-next-proof-kept nil
+  "Optional regexp for commands that prevent omitting the next proof.
+If set, this option should contain a regular expression that
+matches proof-script commands that prevent the omission of proofs
+dirctly following this command. When scanning the newly asserted
+region for proofs to omit, every proof-script command outside
+proofs is matched against this regexp. If it matches and the next
+command matches `proof-script-proof-start-regexp' this following
+proof will not be omitted.
+
+Note that recognition of commands with this regular expression
+does only work if the command and the following proof are
+asserted together."
+  :type 'regexp
   :group 'proof-script)
 
 

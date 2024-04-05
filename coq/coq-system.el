@@ -182,6 +182,18 @@ Return nil if the version cannot be detected."
 	 (signal 'coq-unclassifiable-version  coq-version-to-use))
 	(t (signal (car err) (cdr err))))))))
 
+(defun coq--post-v809 ()
+  "Return t if the auto-detected version of Coq is >= 8.9.
+Return nil if the version cannot be detected."
+  (let ((coq-version-to-use (or (coq-version t) "8.8")))
+    (condition-case err
+	(not (coq--version< coq-version-to-use "8.10alpha"))
+      (error
+       (cond
+	((equal (substring (cadr err) 0 15) "Invalid version")
+	 (signal 'coq-unclassifiable-version  coq-version-to-use))
+	(t (signal (car err) (cdr err))))))))
+
 (defun coq--post-v810 ()
   "Return t if the auto-detected version of Coq is >= 8.10.
 Return nil if the version cannot be detected."
@@ -200,6 +212,31 @@ Return nil if the version cannot be detected."
   (let ((coq-version-to-use (or (coq-version t) "8.10")))
     (condition-case err
 	(not (coq--version< coq-version-to-use "8.11"))
+      (error
+       (cond
+	((equal (substring (cadr err) 0 15) "Invalid version")
+	 (signal 'coq-unclassifiable-version  coq-version-to-use))
+	(t (signal (car err) (cdr err))))))))
+
+(defun coq--is-v817 ()
+  "Return t if the auto-detected version of Coq is some 8.17 version.
+Return nil if the version cannot be detected."
+  (let ((coq-version-to-use (or (coq-version t) "8.16")))
+    (condition-case err
+	(and  (not (coq--version< coq-version-to-use "8.17"))
+              (coq--version< coq-version-to-use "8.18alpha"))
+      (error
+       (cond
+	((equal (substring (cadr err) 0 15) "Invalid version")
+	 (signal 'coq-unclassifiable-version  coq-version-to-use))
+	(t (signal (car err) (cdr err))))))))
+
+(defun coq--post-v818 ()
+  "Return t if the auto-detected version of Coq is >= 8.19alpha.
+Return nil if the version cannot be detected."
+  (let ((coq-version-to-use (or (coq-version t) "8.18")))
+    (condition-case err
+	(not (coq--version< coq-version-to-use "8.19alpha"))
       (error
        (cond
 	((equal (substring (cadr err) 0 15) "Invalid version")
@@ -526,13 +563,14 @@ alreadyopen is t if buffer already existed."
 (defun coq--read-one-option-from-project-file (switch arity raw-args)
   "Cons SWITCH with ARITY arguments from RAW-ARGS.
 If ARITY is nil, return SWITCH."
-  (if arity
-      (let ((arguments
-             (condition-case-unless-debug nil
-                 (cl-subseq raw-args 0 arity)
-               (warn "Invalid _CoqProject: not enough arguments for %S" switch))))
-        (cons switch arguments))
-    switch))
+  (cond
+   ((not arity) switch)
+   ((< (length raw-args) arity)
+    (message "Invalid _CoqProject: not enough arguments for %S" switch)
+    switch)
+   (t
+    (let ((arguments (cl-subseq raw-args 0 arity)))
+      (cons switch arguments)))))
 
 (defun coq--read-options-from-project-file (contents)
   "Read options from CONTENTS of _CoqProject.
